@@ -130,6 +130,73 @@ Notes
   - `PUT /todos/{id}/complete` – mark complete
   - `DELETE /todos/{id}` – delete
 
+## OpenAI Integration
+
+The backend includes comprehensive OpenAI API integration with best practices:
+
+### Setup
+
+1. **Install dependencies:**
+
+```bash
+pip install -r requirements.txt
+```
+
+2. **Configure environment variables:**
+   Create a `.env` file in the `backend/` directory:
+
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_ORGANIZATION=your-org-id-if-applicable
+OPENAI_TIMEOUT=60.0
+OPENAI_MAX_RETRIES=3
+
+# Optional: Azure OpenAI
+# AZURE_OPENAI_API_KEY=your-azure-openai-key
+# AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+# AZURE_OPENAI_API_VERSION=2023-07-01-preview
+```
+
+### Features
+
+- **Chat Completions**: `/openai/chat/completions`
+- **Streaming Chat**: `/openai/chat/completions/stream`
+- **Embeddings**: `/openai/embeddings`
+- **Image Generation**: `/openai/images/generations`
+- **Content Moderation**: `/openai/moderations`
+- **Model Management**: `/openai/models`
+- **Health Check**: `/openai/health`
+
+### Rate Limiting
+
+- Chat completions: 20 requests/minute
+- Embeddings: 30 requests/minute
+- Image generation: 5 requests/minute
+- Model operations: 10-30 requests/minute
+
+### Error Handling
+
+The API includes comprehensive error handling with:
+
+- Automatic retries with exponential backoff
+- Rate limit detection and handling
+- Authentication error handling
+- Connection timeout management
+- Structured error responses
+
+### Best Practices Implemented
+
+- ✅ Async/await support for concurrent requests
+- ✅ Automatic retry logic with exponential backoff
+- ✅ Rate limiting and quota management
+- ✅ Structured logging and monitoring
+- ✅ Input validation with Pydantic models
+- ✅ Environment-based configuration
+- ✅ Connection pooling and timeouts
+- ✅ Comprehensive error handling
+
 ## Notes
 
 - Logging level is set in `app/main.py` via `configure_logging(LogLevels.info)`.
