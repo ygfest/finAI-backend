@@ -52,7 +52,7 @@ python -m pip install -r requirements.txt
 
 ```env
 # Preferred (used first)
-DATABASE_CONNECTION_STRING=postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
 
 # Backwards compat (fallback)
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
