@@ -153,6 +153,11 @@ OPENAI_ORGANIZATION=your-org-id-if-applicable
 OPENAI_TIMEOUT=60.0
 OPENAI_MAX_RETRIES=3
 
+# Finance Advisor Configuration
+FINANCE_ADVISOR_MODEL=o3-mini
+FINANCE_ADVISOR_TEMPERATURE=0.7
+FINANCE_ADVISOR_MAX_TOKENS=2000
+
 # Optional: Azure OpenAI
 # AZURE_OPENAI_API_KEY=your-azure-openai-key
 # AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
@@ -169,12 +174,23 @@ OPENAI_MAX_RETRIES=3
 - **Model Management**: `/openai/models`
 - **Health Check**: `/openai/health`
 
+### Finance Advisor AI (o3-mini)
+
+Specialized financial advice endpoints using o3-mini model:
+
+- **Financial Advice**: `/finance-advisor/advice`
+- **Risk Assessment**: `/finance-advisor/risk-assessment`
+- **Concept Explanations**: `/finance-advisor/explain-concept`
+- **Capabilities**: `/finance-advisor/capabilities`
+- **Health Check**: `/finance-advisor/health`
+
 ### Rate Limiting
 
 - Chat completions: 20 requests/minute
 - Embeddings: 30 requests/minute
 - Image generation: 5 requests/minute
 - Model operations: 10-30 requests/minute
+- **Finance Advisor**: 15 requests/minute (advice), 10/minute (risk assessment), 20/minute (explanations)
 
 ### Error Handling
 
@@ -196,6 +212,34 @@ The API includes comprehensive error handling with:
 - ✅ Environment-based configuration
 - ✅ Connection pooling and timeouts
 - ✅ Comprehensive error handling
+
+### Finance Advisor AI Features
+
+The Finance Advisor AI is a specialized service using the o3-mini model with comprehensive financial education prompts:
+
+#### Capabilities
+
+- **Educational Focus**: Provides general financial knowledge and concepts
+- **Risk Management**: Emphasizes conservative approaches and risk awareness
+- **Regulatory Compliance**: Includes proper disclaimers and professional consultation reminders
+- **Contextual Responses**: Adapts advice based on user knowledge level and query type
+
+#### Specializations
+
+- Investment basics and portfolio theory
+- Debt management and payoff strategies
+- Budgeting and expense tracking
+- Retirement planning fundamentals
+- Risk tolerance assessment
+- Financial concept explanations
+
+#### Safety Features
+
+- Always includes risk warnings and disclaimers
+- Never guarantees returns or specific outcomes
+- Promotes consultation with licensed professionals
+- Educational and informational purposes only
+- Conservative investment recommendations
 
 ## Notes
 

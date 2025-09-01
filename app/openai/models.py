@@ -160,3 +160,59 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Service status")
     timestamp: str = Field(..., description="Health check timestamp")
     version: Optional[str] = Field(None, description="Service version")
+
+
+# Finance Advisor Models
+class FinanceAdviceRequest(BaseModel):
+    """Request model for financial advice."""
+    query: str = Field(..., description="User's financial question")
+    conversation_history: Optional[List[ChatMessage]] = Field(None, description="Previous conversation messages")
+    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
+
+
+class RiskAssessmentRequest(BaseModel):
+    """Request model for risk assessment."""
+    answers: Dict[str, Any] = Field(..., description="User's answers to risk assessment questions")
+    age: Optional[int] = Field(None, ge=18, le=100, description="User's age")
+    income_range: Optional[str] = Field(None, description="User's income range")
+    investment_experience: Optional[str] = Field(None, description="User's investment experience level")
+
+
+class ConceptExplanationRequest(BaseModel):
+    """Request model for concept explanation."""
+    concept: str = Field(..., description="Financial concept to explain")
+    knowledge_level: str = Field("beginner", description="User's knowledge level")
+
+    @validator('knowledge_level')
+    def validate_knowledge_level(cls, v):
+        valid_levels = ["beginner", "intermediate", "advanced"]
+        if v not in valid_levels:
+            raise ValueError(f'Knowledge level must be one of: {valid_levels}')
+        return v
+
+
+class FinanceAdviceResponse(BaseModel):
+    """Response model for financial advice."""
+    advice: str = Field(..., description="Financial advice content")
+    risk_warnings: List[str] = Field(..., description="Important risk warnings")
+    next_steps: List[str] = Field(..., description="Recommended next steps")
+    disclaimer: str = Field(..., description="Legal disclaimer")
+    sources: Optional[List[str]] = Field(None, description="Recommended learning resources")
+
+
+class RiskProfileResponse(BaseModel):
+    """Response model for risk profile assessment."""
+    risk_tolerance: str = Field(..., description="Assessed risk tolerance level")
+    asset_allocation: Dict[str, float] = Field(..., description="Recommended asset allocation percentages")
+    time_horizon: str = Field(..., description="Assessed investment time horizon")
+    considerations: List[str] = Field(..., description="Key considerations")
+    recommendations: List[str] = Field(..., description="Personalized recommendations")
+
+
+class ConceptExplanationResponse(BaseModel):
+    """Response model for concept explanation."""
+    concept: str = Field(..., description="The financial concept")
+    explanation: str = Field(..., description="Detailed explanation")
+    examples: List[str] = Field(..., description="Real-world examples")
+    key_points: List[str] = Field(..., description="Key takeaways")
+    related_concepts: List[str] = Field(..., description="Related concepts to explore")

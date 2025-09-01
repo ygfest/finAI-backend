@@ -25,3 +25,8 @@ def configure_logging(log_level: str = LogLevels.error):
         return
 
     logging.basicConfig(level=log_level)
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance with the specified name."""
+    return logging.getLogger(name)
