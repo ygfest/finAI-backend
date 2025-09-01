@@ -51,12 +51,14 @@ python -m pip install -r requirements.txt
 - Create a `.env` in `backend/` (same folder as `requirements.txt`). Preferred:
 
 ```env
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+# Preferred (used first)
+DATABASE_CONNECTION_STRING=postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
+
+# Backwards compat (fallback)
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
 ```
 
-- The current default in `app/database/core.py` points to:
-  `postgresql://postgres:postgres@db:5432/cleanfastapi`.
-  Define `DATABASE_URL` in `.env` to override it, or adjust the file if needed.
+- The app reads `DATABASE_CONNECTION_STRING` first, then `DATABASE_URL`, else defaults to local SQLite.
 - For production, replace the hardcoded JWT secret in `app/auth/service.py` with a secret from your environment/secret manager.
 
 ## Running (development)
@@ -68,6 +70,43 @@ python -m uvicorn app.main:app --reload
 
 - API Docs: `http://127.0.0.1:8000/docs`
 - OpenAPI JSON: `http://127.0.0.1:8000/openapi.json`
+
+## Neon (PostgreSQL) setup
+
+1. Create a Neon project and database. Copy the SQLAlchemy/psycopg URL. It should look like:
+   `postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require`
+
+2. Set the connection string
+
+- .env (recommended): set `DATABASE_CONNECTION_STRING` as shown above.
+- Windows PowerShell (current session):
+
+```powershell
+$env:DATABASE_CONNECTION_STRING = "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+```
+
+- Windows persistent user env:
+
+```powershell
+setx DATABASE_CONNECTION_STRING "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+```
+
+3. Verify connectivity
+
+```powershell
+python - << 'PY'
+import os
+from sqlalchemy import create_engine, text
+e = create_engine(os.getenv('DATABASE_CONNECTION_STRING'))
+with e.connect() as c:
+    print(c.scalar(text('select 1')))
+PY
+```
+
+Notes
+
+- SSL is enforced automatically if not specified in the URL.
+- Connection pool health checks are enabled via `pool_pre_ping=True`.
 
 ## Database
 

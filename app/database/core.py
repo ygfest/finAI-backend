@@ -7,16 +7,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-""" You can add a DATABASE_URL environment variable to your .env file """
-# DATABASE_URL = os.getenv("DATABASE_URL")
+""" Prefer DATABASE_CONNECTION_STRING; fallback to DATABASE_URL; default to local SQLite for dev """
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
 
-""" Or hard code SQLite here """
-# DATABASE_URL = "sqlite:///./todosapp.db"
+)
 
-""" Or hard code PostgreSQL here """
-DATABASE_URL="postgresql://postgres:postgres@db:5432/cleanfastapi"
+is_postgres = DATABASE_URL.startswith("postgresql")
 
-engine = create_engine(DATABASE_URL)
+engine_kwargs = {"pool_pre_ping": True}
+
+
+if is_postgres and "sslmode=" not in DATABASE_URL:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"sslmode": "require"},
+        **engine_kwargs,
+    )
+else:
+    engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -26,6 +35,7 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+        print("Database connected")
     finally:
         db.close()
         
