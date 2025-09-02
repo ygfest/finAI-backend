@@ -258,3 +258,4 @@ def test_contextual_instructions_coverage(scenario):
 
     # Verify expected context is included
     assert scenario["expected_context"].lower() in instructions.lower()
+

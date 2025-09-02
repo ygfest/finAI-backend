@@ -390,3 +390,4 @@ def get_finance_advisor_service() -> FinanceAdvisorService:
     if _finance_advisor_service is None:
         _finance_advisor_service = FinanceAdvisorService()
     return _finance_advisor_service
+

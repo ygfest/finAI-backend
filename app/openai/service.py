@@ -384,3 +384,4 @@ async def health_check() -> bool:
     except Exception as e:
         logger.error("OpenAI health check failed: %s", str(e))
         return False
+
