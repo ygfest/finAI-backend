@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .database.core import engine, Base
 from .entities.todo import Todo  # Import models to register them
 from .entities.user import User  # Import models to register them
@@ -15,6 +16,14 @@ app = FastAPI(
   title="Finance Advisor API",
   description="API for the Finance Advisor",
   version="1.0.0"
+)
+
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
 )
 
 app.include_router(health_router)
