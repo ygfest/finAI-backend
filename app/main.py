@@ -8,7 +8,11 @@ from .logging import configure_logging, LogLevels
 
 configure_logging(LogLevels.info)
 
-app = FastAPI()
+app = FastAPI(
+  title="Finance Advisor API",
+  description="API for the Finance Advisor",
+  version="1.0.0"
+)
 
 """ Only uncomment below to create new tables, 
 otherwise the tests will fail if not connected
