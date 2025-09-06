@@ -4,6 +4,9 @@ from .entities.todo import Todo  # Import models to register them
 from .entities.user import User  # Import models to register them
 from .api import register_routes
 from .logging import configure_logging, LogLevels
+from .health import router as health_router
+from .openai.controller import router as openai_router
+from .openai.finance_advisor import router as finance_router
 
 
 configure_logging(LogLevels.info)
@@ -13,6 +16,10 @@ app = FastAPI(
   description="API for the Finance Advisor",
   version="1.0.0"
 )
+
+app.include_router(health_router)
+app.include_router(openai_router)
+app.include_router(finance_router)
 
 """ Only uncomment below to create new tables, 
 otherwise the tests will fail if not connected
