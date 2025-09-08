@@ -176,13 +176,27 @@ class OpenAIService:
             logger.info("Creating chat completion with model: %s", model)
 
             async with self.session() as client:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs
-                )
+                # Prepare parameters and map max_tokens to the correct name for reasoning models
+                call_params: Dict[str, Any] = {
+                    "model": model,
+                    "messages": messages,
+                }
+
+                is_reasoning_model = any(x in model for x in ["o3", "o4", "gpt-4.1", "gpt-4.1-mini"]) 
+                if not is_reasoning_model:
+                    call_params["temperature"] = temperature
+
+                # Some models (e.g., o3/o4 reasoning) do not support max_tokens and require max_completion_tokens
+                if max_tokens is not None:
+                    if is_reasoning_model:
+                        call_params["max_completion_tokens"] = max_tokens
+                    else:
+                        call_params["max_tokens"] = max_tokens
+
+                # Merge any additional kwargs (e.g., top_p, presence_penalty)
+                call_params.update(kwargs)
+
+                response = await client.chat.completions.create(**call_params)
 
                 result = response.model_dump()
                 logger.info("Chat completion successful")

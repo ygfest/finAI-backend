@@ -219,23 +219,23 @@ async def create_image(request: ImageGenerationRequest, req: Request):
 @finance_router.post("/advice", response_model=Dict[str, Any])
 @handle_openai_exceptions
 @limiter.limit("15/minute")
-async def get_financial_advice(request: FinanceAdviceRequest, req: Request):
+async def get_financial_advice(request: Request, body: FinanceAdviceRequest):
     """Get financial advice from AI advisor using o3-mini model."""
-    logger.info(f"Received finance advice request: query='{request.query}', temp={request.temperature}")
+    logger.info(f"Received finance advice request: query='{body.query}', temp={body.temperature}")
 
     finance_service = get_finance_advisor_service()
 
     # Convert conversation history to dict format
     conversation_history = None
-    if request.conversation_history:
-        logger.info(f"Conversation history length: {len(request.conversation_history)}")
-        conversation_history = [msg.dict() for msg in request.conversation_history]
+    if body.conversation_history:
+        logger.info(f"Conversation history length: {len(body.conversation_history)}")
+        conversation_history = [msg.dict() for msg in body.conversation_history]
         logger.info(f"Converted conversation history: {conversation_history}")
 
     response = await finance_service.get_financial_advice(
-        user_query=request.query,
+        user_query=body.query,
         conversation_history=conversation_history,
-        temperature=request.temperature
+        temperature=body.temperature
     )
 
     logger.info(f"Finance advice response generated successfully")
@@ -245,12 +245,12 @@ async def get_financial_advice(request: FinanceAdviceRequest, req: Request):
 @finance_router.post("/risk-assessment", response_model=Dict[str, Any])
 @handle_openai_exceptions
 @limiter.limit("10/minute")
-async def assess_risk_profile(request: RiskAssessmentRequest, req: Request):
+async def assess_risk_profile(request: Request, body: RiskAssessmentRequest):
     """Assess user's financial risk profile."""
     finance_service = get_finance_advisor_service()
 
     response = await finance_service.assess_financial_risk_profile(
-        answers=request.answers
+        answers=body.answers
     )
 
     return response
@@ -259,13 +259,13 @@ async def assess_risk_profile(request: RiskAssessmentRequest, req: Request):
 @finance_router.post("/explain-concept", response_model=Dict[str, Any])
 @handle_openai_exceptions
 @limiter.limit("20/minute")
-async def explain_financial_concept(request: ConceptExplanationRequest, req: Request):
+async def explain_financial_concept(request: Request, body: ConceptExplanationRequest):
     """Explain a financial concept at the appropriate knowledge level."""
     finance_service = get_finance_advisor_service()
 
     response = await finance_service.explain_financial_concept(
-        concept=request.concept,
-        user_knowledge_level=request.knowledge_level
+        concept=body.concept,
+        user_knowledge_level=body.knowledge_level
     )
 
     return response
