@@ -13,6 +13,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from .service import get_openai_service, OpenAIError, OpenAIRateLimitError, OpenAIAuthenticationError
+from functools import wraps
 from .finance_advisor import get_finance_advisor_service
 from .models import (
     ChatCompletionRequest, ChatCompletionResponse,
@@ -51,7 +52,8 @@ finance_router = APIRouter(
 
 
 def handle_openai_exceptions(func):
-    """Decorator to handle OpenAI exceptions uniformly."""
+    """Decorator to handle OpenAI exceptions uniformly, preserving endpoint signature."""
+    @wraps(func)
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
@@ -74,28 +76,6 @@ def handle_openai_exceptions(func):
     return wrapper
 
 
-@router.get("/health", response_model=HealthResponse)
-@handle_openai_exceptions
-async def health_check():
-    """Check OpenAI service health."""
-    service = get_openai_service()
-
-    try:
-        # Quick health check by listing models
-        models = await service.list_models()
-        return HealthResponse(
-            status="healthy",
-            timestamp=datetime.utcnow().isoformat(),
-            version=len(models)  # Simple indicator that API is working
-        )
-    except Exception as e:
-        logger.error("Health check failed: %s", str(e))
-        return HealthResponse(
-            status="unhealthy",
-            timestamp=datetime.utcnow().isoformat()
-        )
-
-
 @router.get("/models", response_model=List[ModelInfo])
 @handle_openai_exceptions
 @limiter.limit("10/minute")
@@ -114,22 +94,6 @@ async def list_models(request: Request):
         )
         for model in models
     ]
-
-
-@router.get("/models/{model_id}", response_model=ModelInfo)
-@handle_openai_exceptions
-@limiter.limit("30/minute")
-async def get_model(model_id: str, request: Request):
-    """Get details for a specific model."""
-    service = get_openai_service()
-    model = await service.get_model(model_id)
-
-    return ModelInfo(
-        id=model["id"],
-        object=model["object"],
-        created=model["created"],
-        owned_by=model["owned_by"]
-    )
 
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse)
@@ -250,48 +214,6 @@ async def create_image(request: ImageGenerationRequest, req: Request):
     return ImageResponse(**response)
 
 
-@router.post("/moderations", response_model=ModerationResponse)
-@handle_openai_exceptions
-@limiter.limit("20/minute")
-async def moderate_content(request: ModerationRequest, req: Request):
-    """Moderate content using OpenAI's moderation API."""
-    service = get_openai_service()
-
-    response = await service.moderate_content(request.input)
-
-    return ModerationResponse(**response)
-
-
-# Bulk operations for efficiency
-@router.post("/embeddings/batch", response_model=EmbeddingResponse)
-@handle_openai_exceptions
-@limiter.limit("10/minute")
-async def create_embeddings_batch(request: EmbeddingRequest, req: Request):
-    """Create embeddings for multiple texts in batch."""
-    if isinstance(request.input, str):
-        raise HTTPException(
-            status_code=400,
-            detail="Batch endpoint requires a list of texts"
-        )
-
-    if len(request.input) > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Maximum 100 texts allowed in batch"
-        )
-
-    service = get_openai_service()
-    response = await service.create_embeddings(
-        input_texts=request.input,
-        model=request.model,
-        encoding_format=request.encoding_format,
-        dimensions=request.dimensions,
-        user=request.user
-    )
-
-    return EmbeddingResponse(**response)
-
-
 # Finance Advisor Endpoints
 
 @finance_router.post("/advice", response_model=Dict[str, Any])
@@ -299,12 +221,16 @@ async def create_embeddings_batch(request: EmbeddingRequest, req: Request):
 @limiter.limit("15/minute")
 async def get_financial_advice(request: FinanceAdviceRequest, req: Request):
     """Get financial advice from AI advisor using o3-mini model."""
+    logger.info(f"Received finance advice request: query='{request.query}', temp={request.temperature}")
+
     finance_service = get_finance_advisor_service()
 
     # Convert conversation history to dict format
     conversation_history = None
     if request.conversation_history:
+        logger.info(f"Conversation history length: {len(request.conversation_history)}")
         conversation_history = [msg.dict() for msg in request.conversation_history]
+        logger.info(f"Converted conversation history: {conversation_history}")
 
     response = await finance_service.get_financial_advice(
         user_query=request.query,
@@ -312,6 +238,7 @@ async def get_financial_advice(request: FinanceAdviceRequest, req: Request):
         temperature=request.temperature
     )
 
+    logger.info(f"Finance advice response generated successfully")
     return response
 
 

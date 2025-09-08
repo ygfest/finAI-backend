@@ -15,6 +15,9 @@ class ChatMessage(BaseModel):
     content: Union[str, List[Dict[str, Any]]] = Field(..., description="Message content")
     name: Optional[str] = Field(None, description="Optional name for the message")
 
+    class Config:
+        extra = "allow"  # Allow extra fields to prevent validation errors
+
     @validator('role')
     def validate_role(cls, v):
         valid_roles = ['system', 'user', 'assistant', 'tool']
@@ -168,6 +171,9 @@ class FinanceAdviceRequest(BaseModel):
     query: str = Field(..., description="User's financial question")
     conversation_history: Optional[List[ChatMessage]] = Field(None, description="Previous conversation messages")
     temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
+
+    class Config:
+        extra = "allow"  # Allow extra fields to prevent validation errors
 
 
 class RiskAssessmentRequest(BaseModel):

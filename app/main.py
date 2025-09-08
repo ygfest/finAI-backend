@@ -9,9 +9,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from fastapi.exceptions import RequestValidationError
 
 from .database.core import (
     engine,
@@ -160,7 +162,7 @@ def configure_middleware(application: FastAPI) -> None:
     # CORS Middleware Configuration
     # ============================
     # This allows your frontend to communicate with the API
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(",")
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://localhost:8081").split(",")
     
     application.add_middleware(
         CORSMiddleware,
@@ -211,11 +213,45 @@ async def internal_server_error_handler(request, exc):
     )
 
 
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    """
+    Handle Pydantic validation errors with detailed information.
+    """
+    logger.error(f"Validation error: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "message": str(exc),
+            "details": exc.errors(),
+            "type": "validation_error"
+        }
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle FastAPI request validation errors (422) with detailed information.
+    """
+    logger.error(f"Request validation error: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Request validation error",
+            "message": str(exc),
+            "details": exc.errors(),
+            "type": "request_validation_error"
+        }
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """
     Handle HTTP exceptions with consistent formatting.
-    
+
     This ensures all HTTP errors have a consistent response structure.
     """
     return JSONResponse(
