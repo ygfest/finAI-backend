@@ -30,7 +30,6 @@ from .entities.user import User
 from .api import register_routes
 from .logging import configure_logging, LogLevels
 from .health import router as health_router
-from .openai.controller import router as openai_router
 from .openai.controller import finance_router
 
 configure_logging(LogLevels.info)
@@ -292,12 +291,6 @@ def configure_routers(application: FastAPI) -> None:
     
     # AI and External Service Routers
     # ===============================
-    application.include_router(
-        openai_router,
-        tags=["OpenAI"],
-        prefix="/api/v1"
-    )
-    
     application.include_router(
         finance_router,
         tags=["Finance Advisor"],
