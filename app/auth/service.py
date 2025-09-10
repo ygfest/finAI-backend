@@ -18,8 +18,8 @@ load_dotenv()
 
 # 
 secret_key = os.getenv('SECRET_KEY')
-algorithm = os.getenv('ALGORITHM')
-access_token_expire_minutes = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
+algorithm = os.getenv('ALGORITHM', 'HS256')
+access_token_expire_minutes = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '30'))
 
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
@@ -95,6 +95,15 @@ CurrentUser = Annotated[models.TokenData, Depends(get_current_user)]
 def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
                                  db: Session) -> models.Token:
     user = authenticate_user(form_data.username, form_data.password, db)
+    if not user:
+        raise AuthenticationError()
+    token = create_access_token(user.email, user.id, timedelta(minutes=access_token_expire_minutes))
+    return models.Token(access_token=token, token_type='bearer')
+
+
+def login_user(login_user_request: models.LoginUserRequest, db: Session) -> models.Token:
+    """Login user with email and password and return access token."""
+    user = authenticate_user(login_user_request.email, login_user_request.password, db)
     if not user:
         raise AuthenticationError()
     token = create_access_token(user.email, user.id, timedelta(minutes=access_token_expire_minutes))

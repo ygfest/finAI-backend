@@ -22,3 +22,7 @@ class TokenData(BaseModel):
 class AuthResponse(BaseModel):
     message: str
     status_code: int
+
+class LoginUserRequest(BaseModel):
+    email: EmailStr
+    password: str

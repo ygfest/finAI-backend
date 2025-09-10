@@ -24,6 +24,10 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
 async def register_user(request: Request, db: DbSession, register_user_request: models.RegisterUserRequest):
     return service.register_user(db, register_user_request)
 
+@router.post("/login", response_model=models.Token)
+async def login_user(db: DbSession, login_user_request: models.LoginUserRequest):
+    return service.login_user(login_user_request, db)
+
 
 
 
