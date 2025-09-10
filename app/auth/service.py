@@ -12,10 +12,11 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from ..exceptions import AuthenticationError
 import logging
 
-# You would want to store this in an environment variable or a secret manager
-SECRET_KEY = '197b2c37c391bed93fe80344fe73b806947a65e36206e05a1a23c2fa12702fe3'
-ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# 
+secret_key = os.getenv('SECRET_KEY')
+algorithm = os.getenv('ALGORITHM')
+access_token_expire_minutes = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
+
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
@@ -43,12 +44,12 @@ def create_access_token(email: str, user_id: UUID, expires_delta: timedelta) -> 
         'id': str(user_id),
         'exp': datetime.now(timezone.utc) + expires_delta
     }
-    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(encode, secret_key, algorithm=algorithm)
 
 
 def verify_token(token: str) -> models.TokenData:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
         user_id: str = payload.get('id')
         return models.TokenData(user_id=user_id)
     except PyJWTError as e:
@@ -83,5 +84,5 @@ def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depen
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise AuthenticationError()
-    token = create_access_token(user.email, user.id, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    token = create_access_token(user.email, user.id, timedelta(minutes=access_token_expire_minutes))
     return models.Token(access_token=token, token_type='bearer')
