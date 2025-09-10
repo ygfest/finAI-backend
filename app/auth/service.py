@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
 from uuid import UUID, uuid4
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from passlib.context import CryptContext
 import jwt
 from jwt import PyJWTError
@@ -11,6 +11,10 @@ from . import models
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from ..exceptions import AuthenticationError
 import logging
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # 
 secret_key = os.getenv('SECRET_KEY')
@@ -68,9 +72,18 @@ def register_user(db: Session, register_user_request: models.RegisterUserRequest
         )    
         db.add(create_user_model)
         db.commit()
+        return models.AuthResponse(message="User registered successfully", status_code=201)
     except Exception as e:
         logging.error(f"Failed to register user: {register_user_request.email}. Error: {str(e)}")
-        raise
+
+        # Handle duplicate email constraint violation
+        if "duplicate key value violates unique constraint" in str(e) and "email" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail="Email already registered"
+            )
+
+        raise AuthenticationError()
     
     
 def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]) -> models.TokenData:
