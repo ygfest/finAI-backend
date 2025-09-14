@@ -1,11 +1,18 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from starlette import status
 from . import  models
 from . import service
 from fastapi.security import OAuth2PasswordRequestForm
 from ..database.core import DbSession
 from ..rate_limiter import limiter
+from ..exceptions import (
+    InvalidCredentialsError, 
+    UserAccountLockedError, 
+    UserAccountDisabledError, 
+    TokenGenerationError,
+    DatabaseError
+)
 
 router = APIRouter(
     prefix='/auth',
@@ -26,7 +33,42 @@ async def register_user(request: Request, db: DbSession, register_user_request: 
 
 @router.post("/login", response_model=models.Token)
 async def login_user(db: DbSession, login_user_request: models.LoginUserRequest):
-    return service.login_user(login_user_request, db)
+    try:
+        return service.login_user(login_user_request, db)
+    except InvalidCredentialsError as e:
+        raise HTTPException(
+            status_code=401,
+            detail=str(e)
+        )
+    except UserAccountLockedError as e:
+        raise HTTPException(
+            status_code=423,
+            detail=str(e)
+        )
+    except UserAccountDisabledError as e:
+        raise HTTPException(
+            status_code=403,
+            detail=str(e)
+        )
+    except TokenGenerationError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (these are already properly formatted)
+        raise
+    except Exception as e:
+        # Handle any other unexpected errors
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during login. Please try again later."
+        )
 
 
 

@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
 from uuid import UUID, uuid4
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from passlib.context import CryptContext
 import jwt
 from jwt import PyJWTError
@@ -15,7 +15,8 @@ from ..exceptions import (
     InvalidCredentialsError, 
     UserAccountLockedError, 
     UserAccountDisabledError, 
-    TokenGenerationError
+    TokenGenerationError,
+    DatabaseError
 )
 import logging
 from dotenv import load_dotenv
@@ -217,15 +218,9 @@ def login_user(login_user_request: models.LoginUserRequest, db: Session) -> mode
     except sqlalchemy_exc.SQLAlchemyError as e:
         # Handle database-specific errors
         logging.error(f"Database error during login for {login_user_request.email}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Database error occurred during login. Please try again later."
-        )
+        raise DatabaseError("Database error occurred during login. Please try again later.")
         
     except Exception as e:
         # Handle any other unexpected errors
         logging.error(f"Unexpected error during login for {login_user_request.email}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred during login. Please try again later."
-        )
+        raise DatabaseError("An unexpected error occurred during login. Please try again later.")
