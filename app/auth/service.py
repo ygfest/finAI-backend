@@ -6,10 +6,17 @@ from passlib.context import CryptContext
 import jwt
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
+from sqlalchemy import exc as sqlalchemy_exc
 from app.entities.user import User
 from . import models
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from ..exceptions import AuthenticationError
+from ..exceptions import (
+    AuthenticationError, 
+    InvalidCredentialsError, 
+    UserAccountLockedError, 
+    UserAccountDisabledError, 
+    TokenGenerationError
+)
 import logging
 from dotenv import load_dotenv
 import os
@@ -35,11 +42,38 @@ def get_password_hash(password: str) -> str:
 
 
 def authenticate_user(email: str, password: str, db: Session) -> User | bool:
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
-        logging.warning(f"Failed authentication attempt for email: {email}")
+    """
+    Authenticate user with email and password.
+    
+    Args:
+        email: User's email address
+        password: User's plain text password
+        db: Database session
+        
+    Returns:
+        User object if authentication successful, False otherwise
+    """
+    try:
+        # Query user by email (case-insensitive)
+        user = db.query(User).filter(User.email.ilike(email)).first()
+        
+        if not user:
+            logging.warning(f"Authentication failed: User not found for email: {email}")
+            return False
+            
+        # Verify password
+        if not verify_password(password, user.password_hash):
+            logging.warning(f"Authentication failed: Invalid password for email: {email}")
+            return False
+            
+        return user
+        
+    except sqlalchemy_exc.SQLAlchemyError as e:
+        logging.error(f"Database error during authentication for {email}: {str(e)}")
         return False
-    return user
+    except Exception as e:
+        logging.error(f"Unexpected error during authentication for {email}: {str(e)}")
+        return False
 
 
 def create_access_token(email: str, user_id: UUID, expires_delta: timedelta) -> str:
@@ -102,9 +136,96 @@ def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depen
 
 
 def login_user(login_user_request: models.LoginUserRequest, db: Session) -> models.Token:
-    """Login user with email and password and return access token."""
-    user = authenticate_user(login_user_request.email, login_user_request.password, db)
-    if not user:
-        raise AuthenticationError()
-    token = create_access_token(user.email, user.id, timedelta(minutes=access_token_expire_minutes))
-    return models.Token(access_token=token, token_type='bearer')
+    """
+    Login user with email and password and return access token.
+    
+    Args:
+        login_user_request: Login credentials (email and password)
+        db: Database session
+        
+    Returns:
+        Token object with access token and user information
+        
+    Raises:
+        InvalidCredentialsError: When email or password is incorrect
+        UserAccountLockedError: When account is locked (future feature)
+        UserAccountDisabledError: When account is disabled (future feature)
+        TokenGenerationError: When token creation fails
+        HTTPException: For database or other unexpected errors
+    """
+    try:
+        # Input validation and sanitization
+        if not login_user_request.email or not login_user_request.password:
+            logging.warning("Login attempt with empty credentials")
+            raise InvalidCredentialsError("Email and password are required")
+        
+        # Normalize email to lowercase for consistent comparison
+        email = login_user_request.email.lower().strip()
+        password = login_user_request.password
+        
+        # Log login attempt (without sensitive data)
+        logging.info(f"Login attempt for email: {email}")
+        
+        # Authenticate user
+        user = authenticate_user(email, password, db)
+        if not user:
+            # Log failed authentication attempt for security monitoring
+            logging.warning(f"Failed login attempt for email: {email}")
+            raise InvalidCredentialsError()
+        
+        # Future: Check if account is locked or disabled
+        # if hasattr(user, 'is_locked') and user.is_locked:
+        #     logging.warning(f"Login attempt on locked account: {email}")
+        #     raise UserAccountLockedError()
+        # 
+        # if hasattr(user, 'is_disabled') and user.is_disabled:
+        #     logging.warning(f"Login attempt on disabled account: {email}")
+        #     raise UserAccountDisabledError()
+        
+        # Generate access token
+        try:
+            token = create_access_token(
+                user.email, 
+                user.id, 
+                timedelta(minutes=access_token_expire_minutes)
+            )
+        except Exception as e:
+            logging.error(f"Token generation failed for user {email}: {str(e)}")
+            raise TokenGenerationError()
+        
+        # Prepare user data for response (exclude sensitive information)
+        user_data = {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }
+        
+        # Log successful login
+        logging.info(f"Successful login for user: {email}")
+        
+        return models.Token(
+            access_token=token, 
+            token_type='bearer', 
+            user=user_data
+        )
+        
+    except (InvalidCredentialsError, UserAccountLockedError, UserAccountDisabledError, TokenGenerationError):
+        # Re-raise authentication-related exceptions as-is
+        raise
+        
+    except sqlalchemy_exc.SQLAlchemyError as e:
+        # Handle database-specific errors
+        logging.error(f"Database error during login for {login_user_request.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Database error occurred during login. Please try again later."
+        )
+        
+    except Exception as e:
+        # Handle any other unexpected errors
+        logging.error(f"Unexpected error during login for {login_user_request.email}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during login. Please try again later."
+        )
