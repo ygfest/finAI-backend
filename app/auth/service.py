@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
 from uuid import UUID, uuid4
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from passlib.context import CryptContext
 import jwt
 from jwt import PyJWTError
@@ -10,17 +10,19 @@ from sqlalchemy import exc as sqlalchemy_exc
 from app.entities.user import User
 from . import models
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from ..database.core import DbSession
 from ..exceptions import (
-    AuthenticationError, 
-    InvalidCredentialsError, 
-    UserAccountLockedError, 
-    UserAccountDisabledError, 
+    AuthenticationError,
+    InvalidCredentialsError,
+    UserAccountLockedError,
+    UserAccountDisabledError,
     TokenGenerationError,
     DatabaseError
 )
 import logging
 from dotenv import load_dotenv
 import os
+
 
 load_dotenv()
 
@@ -32,6 +34,27 @@ access_token_expire_minutes = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '30')
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+
+def login_for_access_token(form_data: OAuth2PasswordRequestForm, db: Session) -> models.Token:
+    """
+    Login user using OAuth2 form data format and return access token.
+
+    Args:
+        form_data: OAuth2 password request form containing username and password
+        db: Database session
+
+    Returns:
+        Token object with access token and user information
+    """
+    # Convert OAuth2 form to our LoginUserRequest model
+    login_request = models.LoginUserRequest(
+        email=form_data.username,  # OAuth2 uses 'username' field for email
+        password=form_data.password
+    )
+
+    # Use the existing login_user function
+    return login_user(login_request, db)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -96,7 +119,7 @@ def verify_token(token: str) -> models.TokenData:
         raise AuthenticationError()
 
 
-def register_user(db: Session, register_user_request: models.RegisterUserRequest) -> None:
+def register_user(db: Session, register_user_request: models.RegisterUserRequest) -> models.AuthResponse:
     try:
         create_user_model = User(
             id=uuid4(),
@@ -104,7 +127,7 @@ def register_user(db: Session, register_user_request: models.RegisterUserRequest
             first_name=register_user_request.first_name,
             last_name=register_user_request.last_name,
             password_hash=get_password_hash(register_user_request.password)
-        )    
+        )
         db.add(create_user_model)
         db.commit()
         return models.AuthResponse(message="User registered successfully", status_code=201)
@@ -119,21 +142,8 @@ def register_user(db: Session, register_user_request: models.RegisterUserRequest
             )
 
         raise AuthenticationError()
-    
-    
-def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]) -> models.TokenData:
-    return verify_token(token)
-
-CurrentUser = Annotated[models.TokenData, Depends(get_current_user)]
 
 
-def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-                                 db: Session) -> models.Token:
-    user = authenticate_user(form_data.username, form_data.password, db)
-    if not user:
-        raise AuthenticationError()
-    token = create_access_token(user.email, user.id, timedelta(minutes=access_token_expire_minutes))
-    return models.Token(access_token=token, token_type='bearer')
 
 
 def login_user(login_user_request: models.LoginUserRequest, db: Session) -> models.Token:
@@ -224,3 +234,51 @@ def login_user(login_user_request: models.LoginUserRequest, db: Session) -> mode
         # Handle any other unexpected errors
         logging.error(f"Unexpected error during login for {login_user_request.email}: {str(e)}")
         raise DatabaseError("An unexpected error occurred during login. Please try again later.")
+
+
+def get_current_user(token: Annotated[str, Depends(oauth2_bearer)], db: DbSession) -> User:
+    """
+    Get the current authenticated user from JWT token.
+
+    Args:
+        token: JWT access token from Authorization header
+        db: Database session
+
+    Returns:
+        User object for the authenticated user
+
+    Raises:
+        AuthenticationError: If token is invalid or user not found
+    """
+    try:
+        # Verify and decode the token
+        token_data = verify_token(token)
+
+        if not token_data.user_id:
+            logging.warning("Token missing user_id")
+            raise AuthenticationError("Invalid token: missing user ID")
+
+        # Get user from database
+        user = db.query(User).filter(User.id == token_data.user_id).first()
+
+        if not user:
+            logging.warning(f"User not found for token user_id: {token_data.user_id}")
+            raise AuthenticationError("User not found")
+
+        return user
+
+    except PyJWTError as e:
+        logging.warning(f"JWT token verification failed: {str(e)}")
+        raise AuthenticationError("Invalid or expired token")
+
+    except sqlalchemy_exc.SQLAlchemyError as e:
+        logging.error(f"Database error during user lookup: {str(e)}")
+        raise DatabaseError("Database error occurred while authenticating user")
+
+    except Exception as e:
+        logging.error(f"Unexpected error during user authentication: {str(e)}")
+        raise AuthenticationError("Authentication failed")
+
+
+# Type alias for dependency injection
+CurrentUser = Annotated[User, Depends(get_current_user)]

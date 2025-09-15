@@ -17,6 +17,17 @@ from sqlalchemy.pool import QueuePool, StaticPool
 from sqlalchemy.engine import Engine
 from dotenv import load_dotenv
 
+# Import custom exceptions to handle them properly
+try:
+    from app.exceptions import (
+        InvalidCredentialsError, AuthenticationError,
+        UserAccountLockedError, UserAccountDisabledError,
+        TokenGenerationError, DatabaseError
+    )
+except ImportError:
+    # Handle circular import or if exceptions module doesn't exist
+    logger.warning("Could not import custom exceptions, using string-based detection")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -238,17 +249,45 @@ def get_database_session() -> Generator[Session, None, None]:
     except exc.SQLAlchemyError as e:
         # Handle SQLAlchemy-specific errors
         logger.error(f"Database error occurred: {e}")
-        
+
         # Rollback any pending transaction
         session.rollback()
-        
+
         # Re-raise as HTTP exception for FastAPI to handle
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database operation failed"
         )
-        
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (they're already properly formatted)
+        session.rollback()
+        raise
+
     except Exception as e:
+        # Check if this is a business logic exception that should bubble up
+        try:
+            # If we successfully imported the exception classes
+            if any(isinstance(e, exc_class) for exc_class in [
+                InvalidCredentialsError, AuthenticationError,
+                UserAccountLockedError, UserAccountDisabledError,
+                TokenGenerationError, DatabaseError
+            ]):
+                # This is a business logic exception, let it bubble up
+                session.rollback()
+                raise
+        except NameError:
+            # Fall back to string-based detection if imports failed
+            if hasattr(e, '__class__') and any(
+                cls.__name__ in ['InvalidCredentialsError', 'AuthenticationError',
+                               'UserAccountLockedError', 'UserAccountDisabledError',
+                               'TokenGenerationError', 'DatabaseError']
+                for cls in e.__class__.__mro__
+            ):
+                # This is a business logic exception, let it bubble up
+                session.rollback()
+                raise
+
         # Handle any other unexpected errors
         logger.error(f"Unexpected error in database session: {e}")
         session.rollback()

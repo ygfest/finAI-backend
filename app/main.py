@@ -202,6 +202,18 @@ async def internal_server_error_handler(request, exc):
     """
     logger.error(f"Internal server error: {exc}")
     
+    # Only handle actual 500 errors, not HTTPExceptions with other status codes
+    if isinstance(exc, HTTPException) and exc.status_code != 500:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "detail": exc.detail,
+                "message": exc.detail,
+                "status_code": exc.status_code,
+                "type": "http_error"
+            }
+        )
+    
     return JSONResponse(
         status_code=500,
         content={
@@ -256,7 +268,8 @@ async def http_exception_handler(request, exc):
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "error": exc.detail,
+            "detail": exc.detail,
+            "message": exc.detail,  # Include both for compatibility
             "status_code": exc.status_code,
             "type": "http_error"
         }
