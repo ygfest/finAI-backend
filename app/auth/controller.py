@@ -75,7 +75,8 @@ async def register_user(request: Request, db: DbSession, register_user_request: 
         # Re-raise HTTP exceptions as-is (these are already properly formatted)
         raise
     except Exception as e:
-        # Handle any other unexpected errors
+        # Handle any other unexpected error
+        
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred during registration. Please try again later."
