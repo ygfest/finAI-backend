@@ -22,7 +22,7 @@ try:
     from app.exceptions import (
         InvalidCredentialsError, AuthenticationError,
         UserAccountLockedError, UserAccountDisabledError,
-        TokenGenerationError, DatabaseError
+        TokenGenerationError, DatabaseError, UserNotFoundError
     )
 except ImportError:
     # Handle circular import or if exceptions module doesn't exist
@@ -271,7 +271,7 @@ def get_database_session() -> Generator[Session, None, None]:
             if any(isinstance(e, exc_class) for exc_class in [
                 InvalidCredentialsError, AuthenticationError,
                 UserAccountLockedError, UserAccountDisabledError,
-                TokenGenerationError, DatabaseError
+                TokenGenerationError, DatabaseError, UserNotFoundError
             ]):
                 # This is a business logic exception, let it bubble up
                 session.rollback()
@@ -281,7 +281,7 @@ def get_database_session() -> Generator[Session, None, None]:
             if hasattr(e, '__class__') and any(
                 cls.__name__ in ['InvalidCredentialsError', 'AuthenticationError',
                                'UserAccountLockedError', 'UserAccountDisabledError',
-                               'TokenGenerationError', 'DatabaseError']
+                               'TokenGenerationError', 'DatabaseError', 'UserNotFoundError']
                 for cls in e.__class__.__mro__
             ):
                 # This is a business logic exception, let it bubble up

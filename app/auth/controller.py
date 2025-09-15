@@ -11,7 +11,8 @@ from ..exceptions import (
     UserAccountLockedError, 
     UserAccountDisabledError, 
     TokenGenerationError,
-    DatabaseError
+    DatabaseError,
+    UserNotFoundError
 )
 
 router = APIRouter(
@@ -38,6 +39,12 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     except UserAccountDisabledError as e:
         raise HTTPException(
             status_code=403,
+            detail=str(e)
+        )
+
+    except UserNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
             detail=str(e)
         )
     except TokenGenerationError as e:

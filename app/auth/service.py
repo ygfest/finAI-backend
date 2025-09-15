@@ -17,7 +17,8 @@ from ..exceptions import (
     UserAccountLockedError,
     UserAccountDisabledError,
     TokenGenerationError,
-    DatabaseError
+    DatabaseError,
+    UserNotFoundError
 )
 import logging
 from dotenv import load_dotenv
